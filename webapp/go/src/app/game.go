@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -60,6 +61,10 @@ type Exponential struct {
 
 func (n Exponential) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("[%d,%d]", n.Mantissa, n.Exponent)), nil
+}
+
+func (n Exponential) bigint() *big.Int {
+	return new(big.Int).Mul(big.NewInt(n.Mantissa), new(big.Int).Exp(big.NewInt(10), big.NewInt(n.Exponent), nil))
 }
 
 type Adding struct {
@@ -376,7 +381,7 @@ func getStatus(roomName string) (*GameStatus, error) {
 		return nil, err
 	}
 
-	status, err := calcStatus(currentTime, mItems, addings, buyings)
+	status, err := calcStatus(roomName, currentTime, mItems, addings, buyings)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +396,15 @@ func getStatus(roomName string) (*GameStatus, error) {
 	return status, err
 }
 
-func calcStatus(currentTime int64, mItems map[int]mItem, addings []Adding, buyings []Buying) (*GameStatus, error) {
+type C struct {
+	time  int64
+	added *big.Int
+}
+
+var statusCache = map[string]C{}
+var statusCacheMu sync.Mutex
+
+func calcStatus(roomName string, currentTime int64, mItems map[int]mItem, addings []Adding, buyings []Buying) (*GameStatus, error) {
 	var (
 		// 1ミリ秒に生産できる椅子の単位をミリ椅子とする
 		totalMilliIsu = big.NewInt(0)
@@ -415,8 +428,17 @@ func calcStatus(currentTime int64, mItems map[int]mItem, addings []Adding, buyin
 		itemBuilding[itemID] = []Building{}
 	}
 
+	var cache C
+	statusCacheMu.Lock()
+	cache = statusCache[roomName]
+	statusCacheMu.Unlock()
+
 	for _, a := range addings {
 		// adding は adding.time に isu を増加させる
+		if a.Time <= cache.time {
+			// 計算済みなので nop
+			continue
+		}
 		if a.Time <= currentTime {
 			totalMilliIsu.Add(totalMilliIsu, new(big.Int).Mul(str2big(a.Isu), big.NewInt(1000)))
 		} else {
@@ -424,12 +446,16 @@ func calcStatus(currentTime int64, mItems map[int]mItem, addings []Adding, buyin
 		}
 	}
 
+	if cache.added != nil {
+		totalMilliIsu.Add(totalMilliIsu, cache.added)
+	}
+	added := new(big.Int).Set(totalMilliIsu)
+
 	for _, b := range buyings {
 		// buying は 即座に isu を消費し buying.time からアイテムの効果を発揮する
 		itemBought[b.ItemID]++
 		m := mItems[b.ItemID]
 		totalMilliIsu.Sub(totalMilliIsu, new(big.Int).Mul(m.GetPrice(b.Ordinal), big.NewInt(1000)))
-
 		if b.Time <= currentTime {
 			itemBuilt[b.ItemID]++
 			power := m.GetPower(itemBought[b.ItemID])
@@ -458,6 +484,15 @@ func calcStatus(currentTime int64, mItems map[int]mItem, addings []Adding, buyin
 			TotalPower: big2exp(totalPower),
 		},
 	}
+
+	statusCacheMu.Lock()
+	if s, ok := statusCache[roomName]; !ok || s.time < currentTime {
+		statusCache[roomName] = C{
+			time:  currentTime,
+			added: added,
+		}
+	}
+	statusCacheMu.Unlock()
 
 	// currentTime から 1000 ミリ秒先までシミュレーションする
 	for t := currentTime + 1; t <= currentTime+1000; t++ {
