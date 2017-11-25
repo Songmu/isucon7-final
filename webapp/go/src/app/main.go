@@ -33,7 +33,7 @@ var localServers = []string{
 }
 
 func init() {
-	debug.SetGCPercent(250)
+	debug.SetGCPercent(300)
 }
 
 func initDB() {
