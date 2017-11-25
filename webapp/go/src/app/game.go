@@ -627,6 +627,16 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 					if chs[c] {
 						// 2度目はclose
 						chs[c] = false
+						anyAlive := false
+						for _, alive := range chs {
+							if alive {
+								anyAlive = true
+								break
+							}
+						}
+						if !anyAlive {
+							return
+						}
 					} else {
 						chs[c] = true
 					}
