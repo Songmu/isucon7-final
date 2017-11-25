@@ -12,6 +12,10 @@ APP0124 = isucon@59.106.218.236
 build:
 	cd webapp/go && $(MAKE) build
 
+test: GOOS=
+test:
+	cd webapp/go && $(MAKE) test
+
 update:
 	ssh $(APP0121) 'cd isucon7-final && git pull  && cp -a /home/isucon/webapp'
 	ssh $(APP0122) 'cd isucon7-final && git pull  && cp -a /home/isucon/webapp'
