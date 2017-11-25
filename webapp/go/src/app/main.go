@@ -107,7 +107,7 @@ func getRoomServer(room string) string {
 	var s []byte = hashed[:4]
 	l := len(servers)
 	idx := int(binary.BigEndian.Uint32(s)) % l
-	return servers[idx]
+	return servers[idx]+":5000"
 }
 
 func getRoomHandler(w http.ResponseWriter, r *http.Request) {
