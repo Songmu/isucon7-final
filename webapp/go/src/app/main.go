@@ -10,6 +10,7 @@ import (
 	"net/http/pprof"
 	"net/url"
 	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -28,6 +29,10 @@ var localServers = []string{
 	"192.168.12.2",
 	"192.168.12.3",
 	"192.168.12.4",
+}
+
+func init() {
+	debug.SetGCPercent(250)
 }
 
 func initDB() {
