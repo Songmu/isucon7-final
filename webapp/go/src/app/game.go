@@ -588,6 +588,11 @@ func calcStatus(currentTime int64, mItems map[int]mItem, addings []Adding, buyin
 	}, nil
 }
 
+var (
+	roomConns   = map[string]chan chan *GameStatus{}
+	roomConnsMu sync.Mutex
+)
+
 func serveGameConn(ws *websocket.Conn, roomName string) {
 	log.Println(ws.RemoteAddr(), "serveGameConn", roomName)
 	defer ws.Close()
@@ -608,6 +613,62 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 	defer cancel()
 
 	chReq := make(chan GameRequest)
+	chStatus := make(chan *GameStatus, 1000)
+
+	roomConnsMu.Lock()
+	if _, ok := roomConns[roomName]; !ok {
+		roomConns[roomName] = make(chan chan *GameStatus)
+		tick := time.NewTicker(750 * time.Millisecond)
+		go func() {
+			chs := map[chan *GameStatus]bool{}
+			for {
+				select {
+				case c := <-roomConns[roomName]:
+					if chs[c] {
+						// 2度目はclose
+						chs[c] = false
+						anyAlive := false
+						for _, alive := range chs {
+							if alive {
+								anyAlive = true
+								break
+							}
+						}
+						if !anyAlive {
+							return
+						}
+					} else {
+						chs[c] = true
+					}
+
+				case <-tick.C:
+					status, err := getStatus(roomName)
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+					for c, alive := range chs {
+						if !alive {
+							continue
+						}
+
+						select {
+						case c <- status:
+						default:
+							chs[c] = false
+						}
+					}
+				}
+			}
+		}()
+	}
+	roomConnsMu.Unlock()
+	roomConns[roomName] <- chStatus
+
+	defer func() {
+		roomConns[roomName] <- chStatus
+		close(chStatus)
+	}()
 
 	go func() {
 		defer cancel()
@@ -626,9 +687,6 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 			}
 		}
 	}()
-
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
 
 	for {
 		select {
@@ -671,13 +729,7 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 				log.Println(err)
 				return
 			}
-		case <-ticker.C:
-			status, err := getStatus(roomName)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
+		case status := <-chStatus:
 			err = ws.WriteJSON(status)
 			if err != nil {
 				log.Println(err)
