@@ -118,13 +118,13 @@ func getRoomServer(room string) string {
 	if err == nil {
 		return val
 	}
-	cnt, _ := rediCli.Incr("roomCounter").Result()
+	cnt, err := rediCli.Incr("roomCounter").Result()
 	cn := int(cnt)
 	if err != nil {
 		cn = rand.Int()
 	}
 	l := len(servers)
-	idx := cn / l
+	idx := cn % l
 	sv := servers[idx] + ":5000"
 
 	_ = rediCli.Set(key, sv, 0).Err()
