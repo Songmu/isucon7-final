@@ -96,9 +96,9 @@ func getInitializeHandler(w http.ResponseWriter, r *http.Request) {
 
 var servers = [...]string{
 	"app0121.isu7f.k0y.org",
-	//	"app0122.isu7f.k0y.org",
-	//	"app0123.isu7f.k0y.org",
-	//	"app0124.isu7f.k0y.org",
+	"app0122.isu7f.k0y.org",
+	"app0123.isu7f.k0y.org",
+	"app0124.isu7f.k0y.org",
 }
 
 func getRoomServer(room string) string {
