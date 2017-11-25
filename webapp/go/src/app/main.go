@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-redis/redis"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -19,7 +20,8 @@ import (
 )
 
 var (
-	db *sqlx.DB
+	db      *sqlx.DB
+	rediCli *redis.Client
 )
 
 var localServers = []string{
@@ -62,6 +64,10 @@ func initDB() {
 	db.SetMaxOpenConns(20)
 	db.SetConnMaxLifetime(5 * time.Minute)
 	log.Printf("Succeeded to connect db.")
+
+	rediCli = redis.NewClient(&redis.Options{
+		Addr: "127.0.0.1:6379",
+	})
 }
 
 func getInitializeHandler(w http.ResponseWriter, r *http.Request) {
