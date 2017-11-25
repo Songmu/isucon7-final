@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -167,6 +168,7 @@ func wsGameHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.SetOutput(ioutil.Discard)
 	initDB()
 
 	r := mux.NewRouter()
