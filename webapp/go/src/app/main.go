@@ -67,7 +67,7 @@ func initDB() {
 	log.Printf("Succeeded to connect db.")
 
 	rediCli = redis.NewClient(&redis.Options{
-		Addr: "127.0.0.1:6379",
+		Addr: "192.168.12.4:6379",
 	})
 }
 
