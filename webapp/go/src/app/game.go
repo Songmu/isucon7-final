@@ -627,12 +627,12 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 					chs = append(chs, c)
 
 				case <-tick.C:
+					status, err := getStatus(roomName)
+					if err != nil {
+						log.Println(err)
+						continue
+					}
 					for _, c := range chs {
-						status, err := getStatus(roomName)
-						if err != nil {
-							log.Println(err)
-							continue
-						}
 						c <- status
 					}
 				}
