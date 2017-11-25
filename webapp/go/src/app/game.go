@@ -617,14 +617,19 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 
 	roomConnsMu.Lock()
 	if _, ok := roomConns[roomName]; !ok {
-		roomConns[roomName] = make(chan chan *GameStatus, 100)
+		roomConns[roomName] = make(chan chan *GameStatus)
 		tick := time.NewTicker(750 * time.Millisecond)
 		go func() {
 			chs := map[chan *GameStatus]bool{}
 			for {
 				select {
 				case c := <-roomConns[roomName]:
-					chs[c] = true
+					if chs[c] {
+						// 2度目はclose
+						chs[c] = false
+					} else {
+						chs[c] = true
+					}
 
 				case <-tick.C:
 					status, err := getStatus(roomName)
@@ -650,7 +655,10 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 	roomConnsMu.Unlock()
 	roomConns[roomName] <- chStatus
 
-	defer func() { close(chStatus) }()
+	defer func() {
+		roomConns[roomName] <- chStatus
+		close(chStatus)
+	}()
 
 	go func() {
 		defer cancel()
