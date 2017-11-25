@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"net/url"
 	"os"
 	"sync"
@@ -148,6 +149,8 @@ func main() {
 	r.HandleFunc("/room/{room_name}", getRoomHandler)
 	r.HandleFunc("/ws/", wsGameHandler)
 	r.HandleFunc("/ws/{room_name}", wsGameHandler)
+	r.HandleFunc("/debug/pprof", pprof.Index)
+	r.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("../public/")))
 
 	log.Fatal(http.ListenAndServe(":5000", handlers.LoggingHandler(os.Stderr, r)))
