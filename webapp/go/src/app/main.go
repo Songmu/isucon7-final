@@ -91,6 +91,11 @@ func getInitializeHandler(w http.ResponseWriter, r *http.Request) {
 		db.MustExec("TRUNCATE TABLE adding")
 		db.MustExec("TRUNCATE TABLE buying")
 		db.MustExec("TRUNCATE TABLE room_time")
+		roomConnsMu.Lock()
+		for k := range roomConns {
+			delete(roomConns, k)
+		}
+		roomConnsMu.Unlock()
 		w.WriteHeader(204)
 	}
 }
@@ -107,7 +112,7 @@ func getRoomServer(room string) string {
 	var s []byte = hashed[:4]
 	l := len(servers)
 	idx := int(binary.BigEndian.Uint32(s)) % l
-	return servers[idx]+":5000"
+	return servers[idx] + ":5000"
 }
 
 func getRoomHandler(w http.ResponseWriter, r *http.Request) {
