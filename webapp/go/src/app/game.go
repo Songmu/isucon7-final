@@ -161,7 +161,7 @@ func big2exp(n *big.Int) Exponential {
 		if n.Cmp(big10_15) == -1 {
 			return Exponential{n.Int64(), e}
 		}
-		n = n.Div(n, big10)
+		n = new(big.Int).Div(n, big10)
 		e += 1
 	}
 }
