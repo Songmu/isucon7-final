@@ -91,7 +91,7 @@ func getRoomHandler(w http.ResponseWriter, r *http.Request) {
 		Host string `json:"host"`
 		Path string `json:"path"`
 	}{
-		Host: "",
+		Host: getRoomServer(roomName),
 		Path: path,
 	})
 }
