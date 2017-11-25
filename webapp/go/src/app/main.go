@@ -63,6 +63,13 @@ func getInitializeHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(204)
 }
 
+var servers = [...]string{
+	"app0121.isu7f.k0y.org",
+	"app0122.isu7f.k0y.org",
+	"app0123.isu7f.k0y.org",
+	"app0124.isu7f.k0y.org",
+}
+
 func getRoomHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
