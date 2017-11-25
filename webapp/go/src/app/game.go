@@ -618,9 +618,10 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 	roomConnsMu.Lock()
 	if _, ok := roomConns[roomName]; !ok {
 		roomConns[roomName] = make(chan chan *GameStatus, 100)
-		tick := time.NewTicker(500 * time.Millisecond)
+		tick := time.NewTicker(750 * time.Millisecond)
 		go func() {
 			chs := []chan *GameStatus{}
+			closed := map[chan *GameStatus]bool{}
 			for {
 				select {
 				case c := <-roomConns[roomName]:
@@ -633,7 +634,15 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 						continue
 					}
 					for _, c := range chs {
-						c <- status
+						if closed[c] {
+							continue
+						}
+
+						select {
+						case c <- status:
+						default:
+							closed[c] = true
+						}
 					}
 				}
 			}
