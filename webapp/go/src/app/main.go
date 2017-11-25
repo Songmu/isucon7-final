@@ -128,7 +128,8 @@ func getRoomServer(room string) string {
 	sv := servers[idx] + ":5000"
 
 	_ = rediCli.Set(key, sv, 0).Err()
-	return sv
+	val, _ = rediCli.Get(key).Result()
+	return val
 }
 
 func getRoomHandler(w http.ResponseWriter, r *http.Request) {
