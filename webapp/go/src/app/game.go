@@ -571,11 +571,11 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 	defer cancel()
 
 	chReq := make(chan GameRequest)
-	chStatus := make(chan *GameStatus)
+	chStatus := make(chan *GameStatus, 1000)
 
 	roomConnsMu.Lock()
 	if _, ok := roomConns[roomName]; !ok {
-		roomConns[roomName] = make(chan chan *GameStatus)
+		roomConns[roomName] = make(chan chan *GameStatus, 100)
 		tick := time.NewTicker(500 * time.Millisecond)
 		go func() {
 			chs := []chan *GameStatus{}
@@ -583,12 +583,13 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 				select {
 				case c := <-roomConns[roomName]:
 					chs = append(chs, c)
+
 				case <-tick.C:
 					for _, c := range chs {
 						status, err := getStatus(roomName)
 						if err != nil {
 							log.Println(err)
-							return
+							continue
 						}
 						c <- status
 					}
@@ -596,8 +597,8 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 			}
 		}()
 	}
-	roomConns[roomName] <- chStatus
 	roomConnsMu.Unlock()
+	roomConns[roomName] <- chStatus
 
 	defer func() { close(chStatus) }()
 
@@ -618,9 +619,6 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 			}
 		}
 	}()
-
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
 
 	for {
 		select {
