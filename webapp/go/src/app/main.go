@@ -1,11 +1,10 @@
 package main
 
 import (
-	"crypto/md5"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/http/pprof"
 	"net/url"
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-redis/redis"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -21,7 +21,8 @@ import (
 )
 
 var (
-	db *sqlx.DB
+	db      *sqlx.DB
+	rediCli *redis.Client
 )
 
 var localServers = []string{
@@ -68,6 +69,10 @@ func initDB() {
 	db.SetMaxOpenConns(20)
 	db.SetConnMaxLifetime(5 * time.Minute)
 	log.Printf("Succeeded to connect db.")
+
+	rediCli = redis.NewClient(&redis.Options{
+		Addr: "192.168.12.4:6379",
+	})
 }
 
 func getInitializeHandler(w http.ResponseWriter, r *http.Request) {
@@ -95,6 +100,7 @@ func getInitializeHandler(w http.ResponseWriter, r *http.Request) {
 			delete(roomConns, k)
 		}
 		roomConnsMu.Unlock()
+		rediCli.FlushAll()
 		w.WriteHeader(204)
 	}
 }
@@ -106,12 +112,29 @@ var servers = [...]string{
 	"app0124.isu7f.k0y.org",
 }
 
+var roomMu sync.Mutex
+
 func getRoomServer(room string) string {
-	hashed := md5.Sum([]byte(room))
-	var s []byte = hashed[:4]
+	roomMu.Lock()
+	defer roomMu.Unlock()
+
+	key := fmt.Sprintf("roomServer:%s", room)
+	val, err := rediCli.Get(key).Result()
+	if err == nil {
+		return val
+	}
+	cnt, err := rediCli.Incr("roomCounter").Result()
+	cn := int(cnt)
+	if err != nil {
+		cn = rand.Int()
+	}
 	l := len(servers)
-	idx := int(binary.BigEndian.Uint32(s)) % l
-	return servers[idx] + ":5000"
+	idx := cn % l
+	sv := servers[idx] + ":5000"
+
+	_ = rediCli.Set(key, sv, 0).Err()
+	val, _ = rediCli.Get(key).Result()
+	return val
 }
 
 func getRoomHandler(w http.ResponseWriter, r *http.Request) {
