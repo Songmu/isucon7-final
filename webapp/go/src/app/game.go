@@ -357,7 +357,7 @@ type statsMap struct {
 	ma map[string]*Glock
 }
 
-var sm = &statsMap{}
+var sm = &statsMap{ma: make(map[string]*Glock)}
 
 func (sm *statsMap) get(room, key string) *Glock {
 	sm.mu.Lock()
