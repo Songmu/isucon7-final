@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -347,42 +348,47 @@ func buyItem(roomName string, itemID int, countBought int, reqTime int64) bool {
 	return true
 }
 
+type Glock struct {
+	roomName    string
+	currentTime int64
+
+	mu         sync.Mutex
+	GameStatus *GameStatus
+}
+
+type statsMap struct {
+	mu sync.Mutex
+	ma map[string]*Glock
+}
+
+var sm = &statsMap{ma: make(map[string]*Glock)}
+
+func (sm *statsMap) get(room string, currentTime int64) *Glock {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	key := fmt.Sprintf("%s:%d", room, currentTime)
+	_, ok := sm.ma[key]
+	if !ok {
+		sm.ma[key] = &Glock{roomName: room, currentTime: currentTime}
+	}
+	return sm.ma[key]
+}
+
 func getStatus(roomName string) (*GameStatus, error) {
 	tx, err := db.Beginx()
 	if err != nil {
 		return nil, err
 	}
-
 	currentTime, ok := updateRoomTime(tx, roomName, 0)
 	if !ok {
 		tx.Rollback()
 		return nil, fmt.Errorf("updateRoomTime failure")
 	}
 
-	addings := []Adding{}
-	err = tx.Select(&addings, "SELECT time, isu FROM adding WHERE room_name = ?", roomName)
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	buyings := []Buying{}
-	err = tx.Select(&buyings, "SELECT item_id, ordinal, time FROM buying WHERE room_name = ?", roomName)
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	err = tx.Commit()
+	status, err := sm.get(roomName, currentTime).get(tx)
 	if err != nil {
 		return nil, err
 	}
-
-	status, err := calcStatus(currentTime, mItems, addings, buyings)
-	if err != nil {
-		return nil, err
-	}
-
 	// calcStatusに時間がかかる可能性があるので タイムスタンプを取得し直す
 	latestTime, err := getCurrentTime()
 	if err != nil {
@@ -391,6 +397,43 @@ func getStatus(roomName string) (*GameStatus, error) {
 
 	status.Time = latestTime
 	return status, err
+}
+
+func (gl *Glock) get(tx *sqlx.Tx) (*GameStatus, error) {
+	gl.mu.Lock()
+	defer gl.mu.Unlock()
+
+	if gl.GameStatus == nil {
+		roomName := gl.roomName
+		currentTime := gl.currentTime
+		addings := []Adding{}
+		err := tx.Select(&addings, "SELECT time, isu FROM adding WHERE room_name = ?", roomName)
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+
+		buyings := []Buying{}
+		err = tx.Select(&buyings, "SELECT item_id, ordinal, time FROM buying WHERE room_name = ?", roomName)
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			return nil, err
+		}
+
+		status, err := calcStatus(currentTime, mItems, addings, buyings)
+		if err != nil {
+			return nil, err
+		}
+		gl.GameStatus = status
+	} else {
+		tx.Commit()
+	}
+	return gl.GameStatus, nil
 }
 
 func calcStatus(currentTime int64, mItems map[int]mItem, addings []Adding, buyings []Buying) (*GameStatus, error) {
