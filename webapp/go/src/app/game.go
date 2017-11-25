@@ -403,7 +403,7 @@ func (gl *Glock) get(tx *sqlx.Tx) (*GameStatus, error) {
 	gl.mu.Lock()
 	defer gl.mu.Unlock()
 
-	for gl.GameStatus == nil {
+	if gl.GameStatus == nil {
 		roomName := gl.roomName
 		currentTime := gl.currentTime
 		addings := []Adding{}
@@ -430,6 +430,8 @@ func (gl *Glock) get(tx *sqlx.Tx) (*GameStatus, error) {
 			return nil, err
 		}
 		gl.GameStatus = status
+	} else {
+		tx.Commit()
 	}
 	return gl.GameStatus, nil
 }
