@@ -120,7 +120,7 @@ func getRoomServer(room string) string {
 	}
 	cnt, _ := rediCli.Incr("roomCounter").Result()
 	cn := int(cnt)
-	if err == nil {
+	if err != nil {
 		cn = rand.Int()
 	}
 	l := len(servers)
