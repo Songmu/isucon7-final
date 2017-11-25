@@ -10,6 +10,8 @@ import (
 	"net/http/pprof"
 	"net/url"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -30,6 +32,10 @@ var localServers = []string{
 	"192.168.12.2",
 	"192.168.12.3",
 	"192.168.12.4",
+}
+
+func init() {
+	debug.SetGCPercent(-1)
 }
 
 func initDB() {
@@ -91,6 +97,7 @@ func getInitializeHandler(w http.ResponseWriter, r *http.Request) {
 		db.MustExec("TRUNCATE TABLE adding")
 		db.MustExec("TRUNCATE TABLE buying")
 		db.MustExec("TRUNCATE TABLE room_time")
+		runtime.GC()
 		w.WriteHeader(204)
 	}
 }
