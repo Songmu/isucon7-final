@@ -2,7 +2,7 @@ GOPATH := ${PWD}
 export GOPATH
 
 build:
-		go build -v app
+		go build -i -v app
 
 ensure:
 		cd src/app && dep ensure -vendor-only

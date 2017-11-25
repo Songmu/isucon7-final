@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/gorilla/handlers"
@@ -20,6 +21,13 @@ import (
 var (
 	db *sqlx.DB
 )
+
+var localServers = []string{
+	"192.168.12.1",
+	"192.168.12.2",
+	"192.168.12.3",
+	"192.168.12.4",
+}
 
 func initDB() {
 	db_host := os.Getenv("ISU_DB_HOST")
@@ -59,10 +67,27 @@ func initDB() {
 }
 
 func getInitializeHandler(w http.ResponseWriter, r *http.Request) {
-	db.MustExec("TRUNCATE TABLE adding")
-	db.MustExec("TRUNCATE TABLE buying")
-	db.MustExec("TRUNCATE TABLE room_time")
-	w.WriteHeader(204)
+	if r.FormValue("broadcast") == "" {
+		var wg sync.WaitGroup
+		for _, s := range localServers {
+			wg.Add(1)
+			go func(s string) {
+				defer wg.Done()
+
+				_, err := http.Get("http://" + s + "/initialize?broadcast=1")
+				if err != nil {
+					panic(err)
+				}
+			}(s)
+		}
+		wg.Wait()
+		w.WriteHeader(204)
+	} else {
+		db.MustExec("TRUNCATE TABLE adding")
+		db.MustExec("TRUNCATE TABLE buying")
+		db.MustExec("TRUNCATE TABLE room_time")
+		w.WriteHeader(204)
+	}
 }
 
 var servers = [...]string{
