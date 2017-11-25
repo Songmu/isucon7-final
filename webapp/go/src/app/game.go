@@ -153,12 +153,15 @@ func str2big(s string) *big.Int {
 	return x
 }
 
-func big2exp(n *big.Int) Exponential {
-	s := n.String()
+var big10 = big.NewInt(10)
+var big10_15 = new(big.Int).Exp(big10, big.NewInt(15), nil)
 
-	if len(s) <= 15 {
+func big2exp(n *big.Int) Exponential {
+	if n.Cmp(big10_15) == -1 {
 		return Exponential{n.Int64(), 0}
 	}
+
+	s := n.String()
 
 	t, err := strconv.ParseInt(s[:15], 10, 64)
 	if err != nil {

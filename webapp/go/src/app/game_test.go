@@ -220,5 +220,12 @@ func TestConv(t *testing.T) {
 
 	assert.Equal(Exponential{0, 0}, big2exp(str2big("0")))
 	assert.Equal(Exponential{1234, 0}, big2exp(str2big("1234")))
+	assert.Equal(Exponential{100000000000000, 0}, big2exp(str2big("100000000000000")))
+	assert.Equal(Exponential{100000000000001, 0}, big2exp(str2big("100000000000001")))
+	assert.Equal(Exponential{99999999999999, 0}, big2exp(str2big("99999999999999")))
+	assert.Equal(Exponential{123456789012345, 0}, big2exp(str2big("123456789012345")))
+	assert.Equal(Exponential{123456789012345, 1}, big2exp(str2big("1234567890123456")))
 	assert.Equal(Exponential{111111111111110, 5}, big2exp(str2big("11111111111111000000")))
+
+	assert.Equal(Exponential{111111111111111, 5}, big2exp(str2big("11111111111111111111")))
 }
