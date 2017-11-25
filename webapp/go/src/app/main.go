@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/md5"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -70,6 +72,14 @@ var servers = [...]string{
 	"app0124.isu7f.k0y.org",
 }
 
+func getRoomServer(room string) string {
+	hashed := md5.Sum([]byte(room))
+	var s []byte = hashed[:4]
+	l := len(servers)
+	idx := int(binary.BigEndian.Uint32(s)) % l
+	return servers[idx]
+}
+
 func getRoomHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
@@ -81,7 +91,7 @@ func getRoomHandler(w http.ResponseWriter, r *http.Request) {
 		Host string `json:"host"`
 		Path string `json:"path"`
 	}{
-		Host: "",
+		Host: getRoomServer(roomName),
 		Path: path,
 	})
 }
