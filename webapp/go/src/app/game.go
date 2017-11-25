@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -545,6 +546,11 @@ func calcStatus(currentTime int64, mItems map[int]mItem, addings []Adding, buyin
 	}, nil
 }
 
+var (
+	roomConns   = map[string]chan chan *GameStatus{}
+	roomConnsMu sync.Mutex
+)
+
 func serveGameConn(ws *websocket.Conn, roomName string) {
 	log.Println(ws.RemoteAddr(), "serveGameConn", roomName)
 	defer ws.Close()
@@ -565,6 +571,35 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 	defer cancel()
 
 	chReq := make(chan GameRequest)
+	chStatus := make(chan *GameStatus)
+
+	roomConnsMu.Lock()
+	if _, ok := roomConns[roomName]; !ok {
+		roomConns[roomName] = make(chan chan *GameStatus)
+		tick := time.NewTicker(500 * time.Millisecond)
+		go func() {
+			chs := []chan *GameStatus{}
+			for {
+				select {
+				case c := <-roomConns[roomName]:
+					chs = append(chs, c)
+				case <-tick.C:
+					for _, c := range chs {
+						status, err := getStatus(roomName)
+						if err != nil {
+							log.Println(err)
+							return
+						}
+						c <- status
+					}
+				}
+			}
+		}()
+	}
+	roomConns[roomName] <- chStatus
+	roomConnsMu.Unlock()
+
+	defer func() { close(chStatus) }()
 
 	go func() {
 		defer cancel()
@@ -628,13 +663,7 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 				log.Println(err)
 				return
 			}
-		case <-ticker.C:
-			status, err := getStatus(roomName)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
+		case status := <-chStatus:
 			err = ws.WriteJSON(status)
 			if err != nil {
 				log.Println(err)
