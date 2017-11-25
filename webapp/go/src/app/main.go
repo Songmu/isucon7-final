@@ -74,8 +74,7 @@ var servers = [...]string{
 
 func getRoomServer(room string) string {
 	hashed := md5.Sum([]byte(room))
-	s := []byte{hashed[0], hashed[1], hashed[2], hashed[3]}
-
+	var s []byte = hashed[:4]
 	l := len(servers)
 	idx := int(binary.BigEndian.Uint32(s)) % l
 	return servers[idx]
