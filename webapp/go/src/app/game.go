@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"strconv"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -156,14 +157,17 @@ var big10 = big.NewInt(10)
 var big10_15 = new(big.Int).Exp(big10, big.NewInt(15), nil)
 
 func big2exp(n *big.Int) Exponential {
-	var e int64 = 0
-	for {
-		if n.Cmp(big10_15) == -1 {
-			return Exponential{n.Int64(), e}
-		}
-		n = new(big.Int).Div(n, big10)
-		e += 1
+	if n.Cmp(big10_15) == -1 {
+		return Exponential{n.Int64(), 0}
 	}
+
+	s := n.String()
+
+	t, err := strconv.ParseInt(s[:15], 10, 64)
+	if err != nil {
+		log.Panic(err)
+	}
+	return Exponential{t, int64(len(s) - 15)}
 }
 
 func getCurrentTime() (int64, error) {
