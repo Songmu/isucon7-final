@@ -618,7 +618,6 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 	roomConnsMu.Lock()
 	if _, ok := roomConns[roomName]; !ok {
 		roomConns[roomName] = make(chan chan *GameStatus)
-		tick := time.NewTicker(750 * time.Millisecond)
 		go func() {
 			chs := map[chan *GameStatus]bool{}
 			for {
@@ -641,7 +640,7 @@ func serveGameConn(ws *websocket.Conn, roomName string) {
 						chs[c] = true
 					}
 
-				case <-tick.C:
+				case <-time.After(250 * time.Millisecond):
 					status, err := getStatus(roomName)
 					if err != nil {
 						log.Println(err)
